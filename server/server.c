@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
 /*
 lista giocatori: 
@@ -175,8 +180,11 @@ int main(int argc, char *argv[]){
 
       srand(time(NULL));
 
+      //se non esiste già, crea il file "database" di utenti
+      int fd = open("users.dat", O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+      close(fd);
 
-      int res = login("sdf", "dsfsd");
+      int res = login("admin", "admin");
       
       printf("%d\n", res);
       read_users();
@@ -195,7 +203,7 @@ int main(int argc, char *argv[]){
 
 
 
-
+//TODO Gestire la concorrenza sul file "users.dat"
 unsigned int login(unsigned char* username, unsigned char* password){
 
       FILE* file_users = fopen("users.dat", "rb");
@@ -226,7 +234,7 @@ unsigned int login(unsigned char* username, unsigned char* password){
       }
 
 }
-
+//TODO Gestire la concorrenza sul file "users.dat"
 unsigned int registration(unsigned char* username, unsigned char* password){
 
       FILE* file_users = fopen("users.dat", "rb+");
