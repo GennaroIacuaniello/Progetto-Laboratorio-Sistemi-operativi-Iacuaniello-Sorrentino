@@ -26,7 +26,7 @@ int main(void){
 
 	map_t new_game;
 
-	map_choose(&new_game, 1);
+	map_choose(&new_game, 2);
 	map_draw(new_game);
 
 	//set_cooked_input_mode();
@@ -158,7 +158,7 @@ void map_draw(map_t game){
 				color = COLOR_BLACK;
 			}
 			sprintf(msg, "%d ", i);
-			color_print(msg, COLOR_WHITE, COLOR_RED);
+			color_print(msg, COLOR_RED, color);
 		}
 		printf("\n");
 	}
