@@ -24,21 +24,29 @@
 
 void print_menu(char **menu, int menu_size);
 int navigate_menu(char **menu, int menu_size, int *cursor_y);
-void handle_start_menu_choice(int choice);
 int read_input();
 
 void start_menu();
+void handle_start_menu_choice(int choice);
 
 void main_menu(char* username);
 
 int main(void){
     
+    /*Terminal set-up sequence*/
     enter_screen();
     set_echo_off();
     set_raw_input_mode();
 
+    /*Starting the program*/
     start_menu();
-    
+
+    /*Exit sequence*/
+    clear_screen();
+    set_cooked_input_mode();
+    set_echo_on();
+
+    exit_screen();
     return 0;
 }
 
@@ -50,18 +58,6 @@ void print_menu(char **menu, int menu_size){
         printf(" %s\n", menu[i]);
     }
 
-}
-
-int read_input(){
-    
-    char c;
-    
-    if ((c = getchar()) == '\x1B') {
-        getchar(); //skip the [
-        return getchar(); //the real arrow value
-    }
-
-    return c;
 }
 
 int navigate_menu(char **menu, int menu_size, int *cursor_y){
@@ -85,8 +81,20 @@ int navigate_menu(char **menu, int menu_size, int *cursor_y){
             break;
     }
 
-    usleep(60000);
+    usleep(10000); //keep ~<50000 to avoid stuttering issues with holding arrow keys
     return 0;
+}
+
+int read_input(){
+    
+    char c;
+    
+    if ((c = getchar()) == '\x1B') {
+        getchar(); //skip the [
+        return getchar(); //the real arrow value
+    }
+
+    return c;
 }
 
 void start_menu(){
@@ -103,26 +111,6 @@ void start_menu(){
     }while(!made_choice);
 
     handle_start_menu_choice(cursor_y);
-
-    clear_screen();
-    set_cooked_input_mode();
-    set_echo_on();
-
-    exit_screen();
-}
-
-void main_menu(char *username){
-    int cursor_y = 1;
-    int made_choice = 0;
-    
-    char *main_menu_options[START_MENU_SIZE];
-    main_menu_options[MAIN_MENU_JOIN_LOBBY - 1] = "Unisciti a una lobby";
-    main_menu_options[MAIN_MENU_CREATE_LOBBY - 1] = "Crea lobby";
-    main_menu_options[MAIN_MENU_EXIT - 1] = "Esci";
-    
-    do{
-        made_choice = navigate_menu(main_menu_options, MAIN_MENU_SIZE, &cursor_y);
-    }while(!made_choice);
 
 }
 
@@ -170,4 +158,19 @@ void handle_start_menu_choice(int choice){
         default:
             break;
     }
+}
+
+void main_menu(char *username){
+    int cursor_y = 1;
+    int made_choice = 0;
+    
+    char *main_menu_options[START_MENU_SIZE];
+    main_menu_options[MAIN_MENU_JOIN_LOBBY - 1] = "Unisciti a una lobby";
+    main_menu_options[MAIN_MENU_CREATE_LOBBY - 1] = "Crea lobby";
+    main_menu_options[MAIN_MENU_EXIT - 1] = "Esci";
+    
+    do{
+        made_choice = navigate_menu(main_menu_options, MAIN_MENU_SIZE, &cursor_y);
+    }while(!made_choice);
+
 }
