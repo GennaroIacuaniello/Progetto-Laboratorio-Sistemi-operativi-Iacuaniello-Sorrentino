@@ -152,9 +152,9 @@ int main(void){
 	int prev_x, prev_y;
 	int target_fps = 60;
 
-	enter_screen();
+	TC_enter_screen();
 	set_echo_off();
-	clear_screen();
+	TC_clear_screen();
 
 	set_raw_input_mode();
 
@@ -210,7 +210,7 @@ int main(void){
 		
 	} while(input != EXIT_SCREEN);
 	
-	clear_screen();
+	TC_clear_screen();
 
 	set_cooked_input_mode();
 	set_echo_on();

@@ -3,28 +3,19 @@
 #include <string.h>
 
 #include "terminal_control.h"
+#include "simple_terminal_menu.h"
 
 #define BUFFER_SIZE 64
 
-#define ARROW_UP    65
-#define ARROW_DOWN  66
-#define ARROW_RIGHT 67
-#define ARROW_LEFT  68
-#define ENTER       13
-
 #define START_MENU_SIZE 3
+#define START_MENU_LOGIN 0
 #define START_MENU_REGISTER 1
-#define START_MENU_LOGIN 2
-#define START_MENU_EXIT 3
+#define START_MENU_EXIT 2
 
 #define MAIN_MENU_SIZE 3
-#define MAIN_MENU_JOIN_LOBBY 1
-#define MAIN_MENU_CREATE_LOBBY 2
-#define MAIN_MENU_EXIT 3
-
-void print_menu(char **menu, int menu_size, int cursor_y);
-int navigate_menu(char **menu, int menu_size, int *cursor_y);
-int read_input();
+#define MAIN_MENU_JOIN_LOBBY 0
+#define MAIN_MENU_CREATE_LOBBY 1
+#define MAIN_MENU_EXIT 2
 
 void start_menu();
 void handle_start_menu_choice(int choice);
@@ -34,90 +25,41 @@ void main_menu(char* username);
 int main(void){
     
     /*Terminal set-up sequence*/
-    enter_screen();
-    set_echo_off();
-    set_raw_input_mode();
+    TC_enter_screen();
+    TC_set_echo_off();
+    TC_set_raw_input_mode();
 
     /*Starting the program*/
     start_menu();
 
     /*Exit sequence*/
-    clear_screen();
-    set_cooked_input_mode();
-    set_echo_on();
+    TC_clear_screen();
+    TC_set_cooked_input_mode();
+    TC_set_echo_on();
 
-    exit_screen();
+    TC_exit_screen();
     return 0;
-}
-
-void print_menu(char **menu, int menu_size, int cursor_y){
-
-    clear_screen();
-    for(int i = 0; i < menu_size; i++){
-        set_cursor(0, i+1);
-        printf(" %s\n", menu[i]);
-    }
-    
-    /*Show current position*/
-    set_cursor(0, cursor_y);
-    printf(">");
-
-}
-
-int navigate_menu(char **menu, int menu_size, int *cursor_y){
-
-    print_menu(menu, menu_size, *cursor_y);
-
-    switch (read_input())
-    {
-        case ARROW_UP:
-            *cursor_y  <= 1 ? *cursor_y = 1 : (*cursor_y)--;
-            break;
-        case ARROW_DOWN:
-            *cursor_y  >= menu_size ? *cursor_y = menu_size : (*cursor_y)++;
-            break;
-        case ENTER:
-            return 1;
-            break;
-        default:
-            break;
-    }
-
-    usleep(10000); //keep ~<50000 to avoid stuttering issues with holding arrow keys
-
-    return 0;
-}
-
-int read_input(){
-    
-    char c;
-    
-    if ((c = getchar()) == '\x1B') { //Escape sequence
-        getchar(); //Skip the [
-        return getchar(); //The real arrow value
-    }
-
-    return c;
 }
 
 void start_menu(){
-    int cursor_y = 1;
+    int starting_line = 1;
+    int current_menu_position = 0;
     int made_choice = 0;
     
     char *start_menu_options[START_MENU_SIZE];
-    start_menu_options[START_MENU_REGISTER - 1] = "Registrati";
-    start_menu_options[START_MENU_LOGIN - 1] = "Login";
-    start_menu_options[START_MENU_EXIT - 1] = "Esci";
+    start_menu_options[START_MENU_LOGIN] = "Login";
+    start_menu_options[START_MENU_REGISTER] = "Registrati";
+    start_menu_options[START_MENU_EXIT] = "Esci";
 
     do{
-        made_choice = navigate_menu(start_menu_options, START_MENU_SIZE, &cursor_y);
+        TC_clear_screen();
+        made_choice = STM_navigate_menu(start_menu_options, START_MENU_SIZE, &current_menu_position, starting_line);
     }while(!made_choice);
 
-    handle_start_menu_choice(cursor_y);
+    handle_start_menu_choice(current_menu_position);
 
 }
 
-//TODO: gestisci la scelta di registrarsi o di fare il login senza riempire lo stack
 void handle_start_menu_choice(int choice){
    
     char username[BUFFER_SIZE], password[BUFFER_SIZE];
@@ -125,38 +67,41 @@ void handle_start_menu_choice(int choice){
 
     switch (choice)
     {
-        case START_MENU_REGISTER:
-            
-            break;
         case START_MENU_LOGIN:
             
             int login_success = 0;
-            clear_screen();
-            set_cooked_input_mode();
+            TC_clear_screen();
+            TC_set_cooked_input_mode();
             
             printf("Username: "); fflush(stdout);
-            set_echo_on();
+            TC_set_echo_on();
             size = read(STDIN_FILENO, username, BUFFER_SIZE);
             username[size - 1] = '\0';
 
             while(!login_success){
                 printf("Password: "); fflush(stdout);
-                set_echo_off(); //Hide the password
+                TC_set_echo_off(); //Hide the password
                 size = read(STDIN_FILENO, password, BUFFER_SIZE);
                 password[size - 1] = '\0';
                 printf("\n");
 
-                if(!strcmp(username, "grralw") && !strcmp(password, "mypassword")){
+                if(!strcmp(username, "a") && !strcmp(password, "a")){
                     login_success = 1;
                 }
             }
             
-            clear_screen();
-            set_raw_input_mode();
+            TC_clear_screen();
+            TC_set_raw_input_mode();
             main_menu(username);
 
             break;
+        case START_MENU_REGISTER:
+            printf("SELECTED REGISTER\n");
+            usleep(500000);
+            break;
         case START_MENU_EXIT:
+            printf("SELECTED EXIT\n");
+            usleep(500000);
             break;
         default:
             break;
@@ -164,16 +109,36 @@ void handle_start_menu_choice(int choice){
 }
 
 void main_menu(char *username){
-    int cursor_y = 1;
+    int starting_line = 1;
+    int current_menu_position = 0;
     int made_choice = 0;
     
     char *main_menu_options[MAIN_MENU_SIZE];
-    main_menu_options[MAIN_MENU_JOIN_LOBBY - 1] = "Unisciti a una lobby";
-    main_menu_options[MAIN_MENU_CREATE_LOBBY - 1] = "Crea lobby";
-    main_menu_options[MAIN_MENU_EXIT - 1] = "Esci";
+    main_menu_options[MAIN_MENU_JOIN_LOBBY] = "Unisciti a una lobby";
+    main_menu_options[MAIN_MENU_CREATE_LOBBY] = "Crea lobby";
+    main_menu_options[MAIN_MENU_EXIT] = "Esci";
     
     do{
-        made_choice = navigate_menu(main_menu_options, MAIN_MENU_SIZE, &cursor_y);
+        TC_clear_screen();
+        made_choice = STM_navigate_menu(main_menu_options, MAIN_MENU_SIZE, &current_menu_position, starting_line);
     }while(!made_choice);
+
+    switch (current_menu_position)
+    {
+        case MAIN_MENU_JOIN_LOBBY:
+            printf("SELECTED JOIN LOBBBY\n"); 
+            usleep(500000);
+            break;
+        case MAIN_MENU_CREATE_LOBBY:
+            printf("SELECTED CREATE LOBBBY\n"); 
+            usleep(500000);
+            break;
+        case MAIN_MENU_EXIT:
+            printf("SELECTED EXIT\n"); 
+            usleep(500000);
+    
+    default:
+        break;
+    }
 
 }

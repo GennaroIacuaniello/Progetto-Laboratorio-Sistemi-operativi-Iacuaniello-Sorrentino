@@ -5,43 +5,43 @@
 #include <unistd.h>
 #include <time.h>
 
-void clear_screen(){ 
+void TC_clear_screen(){ 
 	write(STDOUT_FILENO, "\x1b[H\x1b[2J\x1b[3J", 11);
 }
 
-void enter_screen() 
+void TC_enter_screen() 
 {
 	puts("\x1B[?1049h\x1B[H");
 }
 
-void exit_screen() 
+void TC_exit_screen() 
 {
 	puts("\x1B[?1049l");
 }
 
-void set_echo_off(){
+void TC_set_echo_off(){
 
 	system("stty -echo"); //removes echo
 	printf("\e[?25l"); //removes visible cursor
 }
-void set_echo_on(){
+void TC_set_echo_on(){
 
 	system("stty echo"); //restores echo
 	printf("\e[?25h"); //restores visible cursor
 }
 
-void set_cursor(int x, int y){ 
+void TC_set_cursor(int x, int y){ 
 	printf("\x1B[%d;%dH", y, x);
 }
 
-void set_raw_input_mode(){ 
+void TC_set_raw_input_mode(){ 
 	system("/bin/stty raw");
 }
-void set_cooked_input_mode(){ 
+void TC_set_cooked_input_mode(){ 
 	system("/bin/stty cooked");
 }
 
-void get_cols_rows(int *cols, int *rows){
+void TC_get_cols_rows(int *cols, int *rows){
 
 	char bash_cmd[256] = "tput cols lines";
 	FILE *pipe;
@@ -60,9 +60,34 @@ void get_cols_rows(int *cols, int *rows){
 	pclose(pipe);
 }
 
-void color_print(char *msg, color_t fg_color, color_t bg_color){
+void TC_color_print(char *msg, color_t fg_color, color_t bg_color){
 
 	printf("\x1B[38;2;%d;%d;%dm\x1B[48;2;%d;%d;%dm%s\x1b[0m",
 		fg_color.r, fg_color.g, fg_color.b, 
 		bg_color.r, bg_color.g, bg_color.b, msg);
+}
+
+
+int TC_read_movement_input(){
+    
+    char c;
+    
+    if ((c = getchar()) == '\x1B') { //Escape sequence
+        getchar(); //Skip the [
+        return getchar(); //The real arrow value
+    }
+
+    switch (c)
+    {
+        case 'w':
+            return MOVE_UP;
+        case 'a':
+            return MOVE_LEFT;
+        case 's':
+            return MOVE_DOWN;
+        case 'd':
+            return MOVE_RIGHT;
+    }
+
+    return c;
 }
