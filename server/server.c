@@ -87,7 +87,8 @@ typedef struct User_in_match{
 typedef struct Match{
 
       unsigned long long id;                          //id of the lobby
-      User_in_match players[MAX_PLAYERS_MATCH];       //array of players, up to MAX_PLAYERS_MATCH players per match
+      User_in_match* players[MAX_PLAYERS_MATCH];       //array of players, up to MAX_PLAYERS_MATCH players per match
+      int host;                                       //Index of the array players that indicates which one is the host of the game
       int size;                                       //Map size
       char** map;                                     //Map of the game
 
@@ -104,6 +105,11 @@ typedef struct Match_list_node{
 
 }Match_list_node;
 
+//Global list of matches
+Match_list_node* match_list = NULL;
+
+
+
 
 //Variables used to give ids to matches
 pthread_mutex_t next_match_id_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -111,6 +117,8 @@ pthread_cond_t next_match_id_cond_var = PTHREAD_COND_INITIALIZER;
 int next_match_id_free = 1;
 
 unsigned long long next_match_id = 1;
+
+
 
 
 //Variables used as maps pre-sets
@@ -282,13 +290,18 @@ User* handle_starting_interaction(int socket_for_thread);
 User* handle_login(int socket_for_thread);
 User* handle_registration(int socket_for_thread);
 
+
 unsigned int login(unsigned char* username, unsigned char* password);
 unsigned int registration(unsigned char* username, unsigned char* password);
 unsigned long hash(unsigned char *str);
 
+
 void handle_session(int socket_for_thread, User* current_user);
 void lobby_creation(int socket_for_thread, User* current_user);
 void join_lobby(int socket_for_thread, User* current_user);
+
+void handle_being_in_lobby(int socket_for_thread, User* current_user, int id_in_match);
+
 
 Match* init_match(int socket_for_thread, User* creator, int size);
 
@@ -877,7 +890,7 @@ void handle_session(int socket_for_thread, User* current_user){
                         pthread_exit(0);
 
                   default:
-                        char error_message[] = "\nOpzione non valida!\nInserire il numero relativo all'opzione che si desidera:\n1)Login\n2)Registrazione\n3)Esci\n";
+                        char error_message[] = "\nOpzione non valida!\nInserire il numero relativo all'opzione che si desidera:\n\1)Crea lobby\n2)Entra in una lobby\n3)Esci\n";
                         send_all(socket_for_thread, error_message, sizeof(error_message));
                         break;
             }
@@ -888,9 +901,71 @@ void handle_session(int socket_for_thread, User* current_user){
 
 void lobby_creation(int socket_for_thread, User* current_user){
 
+      char size_request[] = "\nInserire l'opzione relativa alla dimensione della mappa con cui si desidera giocare:\n1)16x16\n2)32x32\n3)48x48\n";
+
+      send_all(socket_for_thread, size_request, sizeof(size_request));
+
+      int size;
+      uint32_t option_received, option;
+      int done = 0;
+
+      while (done == 0){
+
+            ssize_t r = recv_all(socket_for_thread, &option_received, sizeof(option), 0);
+
+            if (r == sizeof(option_received)) 
+                  option = ntohl(option_received);
+
+
+            switch (option){
+                  case 1:
+                        done = 1;
+                        size = 16;
+                        break;
+                  case 2:
+                        done = 1;
+                        size = 32;
+                        break;
+                  case 3:
+                        done = 1;
+                        size = 48;
+                        break;
+
+                  default:
+                        char error_message[] = "\nOpzione non valida!\nInserire il numero relativo alla dimensione della mappa che si desidera:\n1)16x16\n2)32x32\n3)48x48\n";
+                        send_all(socket_for_thread, error_message, sizeof(error_message));
+                        break;
+            }
+
+      }
+
+      Match* new_match = init_match(socket_for_thread, current_user, size);
+
+      if(match_list == NULL){
+            Match_list_node* new_node = malloc(sizeof(Match_list_node));
+            new_node->match = new_match;
+            new_node->next = NULL;
+            match_list = new_node;
+      }else{
+            Match_list_node* tmp = malloc(sizeof(Match_list_node));
+            tmp->match = new_match;
+            tmp->next = match_list;
+            match_list = tmp;
+      }
+
+      handle_being_in_lobby(socket_for_thread, current_user, 0);      //0 as id_in_match because the lobby has been just created by this user, so he is the only user and also the host
+
 }
 
 void join_lobby(int socket_for_thread, User* current_user){
+
+}
+
+void handle_being_in_lobby(int socket_for_thread, User* current_user, int id_in_match){
+
+
+
+
 
 }
 
@@ -915,7 +990,18 @@ Match* init_match(int socket_for_thread, User* creator, int size){
       pthread_mutex_unlock(&next_match_id_mutex);
 
       //Putting the creator in players
-      strcpy(match_created->players[0].username, creator->username);
+      User_in_match* new_player = malloc(sizeof(User_in_match));
+      strcpy(new_player->username, creator->username);
+      match_created->players[0] = new_player;
+
+      //Other pointers in the arrray are NULL, because there are no other players yet
+      int i;
+      for(i=1; i < MAX_PLAYERS_MATCH; i++)
+            match_created->players[i] = NULL;
+
+
+      //Putting the creator as the host
+      match_created->host = 0;
 
       //The chosen size
       match_created->size = size;
