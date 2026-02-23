@@ -340,7 +340,7 @@ static void* handle_client(void* arg);
 
 
 //Handler of the signal SIGUSR1 used for the start of the matches
-void siguser1_handler(int signal);
+//void siguser1_handler(int signal);
 //TODO Rimuovere le seguenti funzioni di debug
 void read_users(){
       
@@ -369,7 +369,7 @@ void read_users(){
 int main(int argc, char* argv[]){
 
       signal(SIGPIPE, SIG_IGN);
-      signal(SIGUSR1, siguser1_handler);
+      //signal(SIGUSR1, siguser1_handler);
 
       srand(time(NULL));
 
@@ -649,8 +649,16 @@ ssize_t recv_all(int socket_for_thread, void* buf, size_t n, int flags){
 
             if( r < 0 ){
 
-                  if(errno = EINTR)
+                  if(errno == EINTR)
                         continue;
+
+                  if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                        if (received == 0) {
+                              return -1;
+                        } else {
+                              continue;
+                        }
+                  }
                   
                   perror("recv"); 
                   close(socket_for_thread); 
@@ -759,8 +767,16 @@ ssize_t recv_all_in_match(int socket_for_thread, void* buf, size_t n, int flags,
 
             if( r < 0 ){
 
-                  if(errno = EINTR)
+                  if(errno == EINTR)
                         continue;
+
+                  if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                        if (received == 0) {
+                              return -1;
+                        } else {
+                              continue;
+                        }
+                  }
                   
                   perror("recv"); 
                   handle_client_death_in_lobby(socket_for_thread, match_node, current_user, id_in_match); 
@@ -1134,6 +1150,11 @@ void join_lobby(int socket_for_thread, User* current_user){
 
 
 
+            if(option == 0){
+                  handle_session(socket_for_thread, current_user);
+                  return;
+            }
+
             Match_list_node* tmp = match_list;
 
             while(tmp != NULL){
@@ -1163,6 +1184,7 @@ void join_lobby(int socket_for_thread, User* current_user){
                   free(message_with_matches_info);
                   message_with_matches_info = NULL;
                   handle_session(socket_for_thread, current_user);
+                  return;
             }
 
       }
@@ -1184,9 +1206,9 @@ char* get_message_with_matches_info(int error_flag){
       }
       
       if(error_flag == 0)
-            strcpy(matches_info, "\nInserire l'id della lobby in cui si desidera entrare:\nLobby disponibili (Id\tDimensione mappa di gioco\tGiocatori connessi):\n");
+            strcpy(matches_info, "\nInserire l'id della lobby in cui si desidera entrare oppure 0 per annullare:\nLobby disponibili (Id\tDimensione mappa di gioco\tGiocatori connessi):\n");
       else
-            strcpy(matches_info, "Id lobby specificato non disponibile!\nInserire l'id della lobby in cui si desidera entrare:\nLobby disponibili (Id\tDimensione mappa di gioco\tGiocatori connessi):\n");
+            strcpy(matches_info, "Id lobby specificato non disponibile!\nInserire l'id della lobby in cui si desidera entrare oppure 0 per annullare:\nLobby disponibili (Id\tDimensione mappa di gioco\tGiocatori connessi):\n");
 
 
       int lobby_found = 0;          //Checks if at least a lobby is available
@@ -1267,9 +1289,7 @@ char* get_message_with_matches_info(int error_flag){
 
       }
 
-      perror("ciao");
       return matches_info;
-
 
 }
 
@@ -1452,6 +1472,31 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
                   //no data, all normal
             }
 
+            //Checks if the match started, in which case it enters the match
+            pthread_mutex_lock(&match_node->match->match_mutex);
+
+            while(match_node->match->match_free == 0)
+                  pthread_cond_wait(&match_node->match->match_cond_var, &match_node->match->match_mutex);
+
+            match_node->match->match_free = 0;
+
+            if(id_in_match != match_node->match->host && match_node->match->status == IN_PROGRESS){
+
+                  match_node->match->match_free = 1;
+                  pthread_cond_signal(&match_node->match->match_cond_var);
+                  pthread_mutex_unlock(&match_node->match->match_mutex);
+
+                  handle_being_in_match(socket_for_thread, match_node, current_user, id_in_match);
+                  return;
+
+            }else{
+                  
+                  match_node->match->match_free = 1;
+                  pthread_cond_signal(&match_node->match->match_cond_var);
+                  pthread_mutex_unlock(&match_node->match->match_mutex);
+
+            }
+
 
             //Every 5 sec checks if players or size changed, and if so re-sends the message changing the list of players connected and/or the size
             time_t now = time(NULL);
@@ -1548,7 +1593,7 @@ char* get_message_list_of_players_and_size(int socket_for_thread, User* current_
 
                   strcat(list_of_players_and_size, "\nDimensione mappa: ");
 
-                  char string_size[5], string_dimension[15];
+                  char string_size[5] = {0}, string_dimension[15] = {0};
                   sprintf(string_size, "%d", match_node->match->size);
 
                   strcat(string_dimension, string_size);
@@ -1637,7 +1682,7 @@ void start_match(int socket_for_thread, Match_list_node* match_node, User* curre
 
                         if(match_node->match->map[x][y] == 'e'){
                               for(j=0; j < MAX_PLAYERS_MATCH; j++){
-                                    if(match_node->match->players[j] != NULL)
+                                    if( j != i && match_node->match->players[j] != NULL)
                                           if(match_node->match->players[j]->x == x && match_node->match->players[j]->y == y){
                                                 pos_ok = 0;
                                                 break;
@@ -1659,10 +1704,10 @@ void start_match(int socket_for_thread, Match_list_node* match_node, User* curre
 
       match_node->match->status = IN_PROGRESS;
 
-      for(i=0; i < MAX_PLAYERS_MATCH; i++){
+      /*for(i=0; i < MAX_PLAYERS_MATCH; i++){
             if(i != id_in_match && match_node->match->players[i] != NULL)
                   pthread_kill(match_node->match->players[i]->tid, SIGUSR1);
-      }
+      }*/
 
       match_node->match->match_free = 1;
       pthread_cond_signal(&match_node->match->match_cond_var);
@@ -1867,32 +1912,39 @@ void handle_client_death_in_lobby(int socket_for_thread, Match_list_node* match_
 
                   }
 
-      }
+            match_node->match->match_free = 1;
+            pthread_cond_signal(&match_node->match->match_cond_var);
+            pthread_mutex_unlock(&match_node->match->match_mutex);
 
-      match_node->match->match_free = 1;
-      pthread_cond_signal(&match_node->match->match_cond_var);
-      pthread_mutex_unlock(&match_node->match->match_mutex);
+            if(found_another_host == 0){        //It means that there are no more players in the lobby, so the lobby must be deleted
 
-      if(found_another_host == 0){        //It means that there are no more players in the lobby, so the lobby must be deleted
+                  Match_list_node* tmp = match_list;
 
-            Match_list_node* tmp = match_list;
-
-            if(tmp == match_node){
-                  match_list = match_list->next;
-            }else{
-                  while(tmp != NULL){
-                        if(tmp->next == match_node){
-                              tmp->next = match_node->next;
-                              break;
+                  if(tmp == match_node){
+                        match_list = match_list->next;
+                  }else{
+                        while(tmp != NULL){
+                              if(tmp->next == match_node){
+                                    tmp->next = match_node->next;
+                                    break;
+                              }
+                              tmp = tmp->next;
                         }
-                        tmp = tmp->next;
                   }
+
+                  free_match(match_node->match);
+                  match_node = NULL;
             }
 
-            free_match(match_node->match);
-            match_node = NULL;
+      }else{
+
+            match_node->match->match_free = 1;
+            pthread_cond_signal(&match_node->match->match_cond_var);
+            pthread_mutex_unlock(&match_node->match->match_mutex);
+
       }
 
+      
       close(socket_for_thread);
       pthread_exit(0);
 
@@ -1901,11 +1953,15 @@ void handle_client_death_in_lobby(int socket_for_thread, Match_list_node* match_
 
 void handle_being_in_match(int socket_for_thread, Match_list_node* match_node, User* current_user, int id_in_match){
 
-      
-
+      //Code to test that match starts for every player
+      while(1){
+            perror("ciao");
+            sleep(30);
+      }
 
 }
 
+/*
 void siguser1_handler(int signal){
 
       int i;
@@ -1940,9 +1996,10 @@ void siguser1_handler(int signal){
       }
 
       if(player_found == 1)
-            handle_being_in_match(socket_for_thread, tmp, current_user, id_in_match);
+            handle_being_in_match(*socket_for_thread, tmp, current_user, id_in_match);
 
 }
+*/
 
 Match* init_match(int socket_for_thread, User* creator, int size){
       
@@ -2027,6 +2084,10 @@ Match* init_match(int socket_for_thread, User* creator, int size){
 }
 
 void free_match(Match* match){
+
+      if (match == NULL) {
+            return;
+      }
 
       int i;
       //Deallocating players
