@@ -345,6 +345,7 @@ void handle_being_in_match(int socket_for_thread, Match_list_node* match_node, U
 Message_with_local_information* get_message_with_local_information(Match_list_node* match_node, int id_in_match);
 void send_global_map_to_client(int socket_for_thread, Match_list_node* match_node, User* current_user, int id_in_match);
 void handle_move_in_match(Match_list_node* match_node, int id_in_match, char option);
+void move(Match_list_node* match_node, int id_in_match, int new_x, int new_y);
 void handle_match_ending(int socket_for_thread, Match_list_node* match_node, User* current_user, int id_in_match);
 
 Match* init_match(int socket_for_thread, User* creator, int size);
@@ -2193,8 +2194,73 @@ void send_global_map_to_client(int socket_for_thread, Match_list_node* match_nod
 
 void handle_move_in_match(Match_list_node* match_node, int id_in_match, char option){
 
+      int new_x = match_node->match->players[id_in_match]->x;
+      int new_y = match_node->match->players[id_in_match]->y;
+
+      switch (option){
+            case 'w':
+                  move(match_node, id_in_match, new_x - 1, new_y);
+                  break;
+            case 'a':
+                  move(match_node, id_in_match, new_x, new_y - 1);
+                  break;
+            case 's':
+                  move(match_node, id_in_match, new_x + 1, new_y);
+                  break;
+            case 'd':
+                  move(match_node, id_in_match, new_x, new_y + 1);
+                  break;
+            
+            default:
+                  break;
+
+      }
+      
+}
+
+void move(Match_list_node* match_node, int id_in_match, int new_x, int new_y){
+
+      int i;
+      int size = match_node->match->size;
+      int available_pos = 1;
+      pthread_mutex_lock(&match_node->match->match_mutex);
+
+      while(match_node->match->match_free == 0)
+            pthread_cond_wait(&match_node->match->match_cond_var, &match_node->match->match_mutex);
+
+      match_node->match->match_free = 0;
+
+      if( (new_x >= 0 && new_x < size) && (new_y >= 0 && new_y < size)){
+
+            if(match_node->match->map[new_x][new_y] != 'w'){
+
+                  for(i = 0; i < MAX_PLAYERS_MATCH; i++)
+                        if(i != id_in_match && match_node->match->players[i] != NULL)
+                              if(match_node->match->players[i]->x == new_x && match_node->match->players[i]->y == new_y){
+                                    available_pos = 0;
+                                    break;
+                              }
+                  
+            }else{
+                  available_pos = 0;
+            }
+
+      }else{
+            available_pos = 0;
+      }
+
+      if(available_pos == 1){
+
+            match_node->match->players[id_in_match]->x = new_x;
+            match_node->match->players[id_in_match]->y = new_y;
+            
+            match_node->match->map[new_x][new_y] = colors[id_in_match];
+      }
 
 
+      match_node->match->match_free = 1;
+      pthread_cond_signal(&match_node->match->match_cond_var);
+      pthread_mutex_unlock(&match_node->match->match_mutex);
 
 }
 
