@@ -1175,13 +1175,22 @@ void join_lobby(int socket_for_thread, User* current_user){
 
       char* message_with_matches_info = get_message_with_matches_info(socket_for_thread, 0);     //normal call, no error occurred
 
+      uint32_t status_code;         //status code to send to the client together with the message
+
       send_all(socket_for_thread, message_with_matches_info, strlen(message_with_matches_info) + 1);
 
       if(strcmp(message_with_matches_info, "\nNon sono disponili lobby in cui entrare!\n") == 0){
             free(message_with_matches_info);
             message_with_matches_info = NULL;
+
+            status_code = htonl(1);       //If no lobbies are available, send error status code
+            send_all(socket_for_thread, &status_code, sizeof(status_code));
+
             handle_session(socket_for_thread, current_user);
       }
+
+      status_code = htonl(0);       //Otherwise, send ok status code
+      send_all(socket_for_thread, &status_code, sizeof(status_code));
             
       uint32_t option_received, option;
       int done = 0;
@@ -1221,16 +1230,26 @@ void join_lobby(int socket_for_thread, User* current_user){
 
             }
 
+            status_code = htonl(1);       //Otherwise, send error status code
+            send_all(socket_for_thread, &status_code, sizeof(status_code));
+
             free(message_with_matches_info);
             message_with_matches_info = get_message_with_matches_info(socket_for_thread, 1);     //Id specified not available, call with error_flag set
             send_all(socket_for_thread, message_with_matches_info, strlen(message_with_matches_info) + 1);
 
             if(strcmp(message_with_matches_info, "\nNon sono disponili lobby in cui entrare!\n") == 0){
+
+                  status_code = htonl(1);       //If no lobbies are available, send error status code
+                  send_all(socket_for_thread, &status_code, sizeof(status_code));
+
                   free(message_with_matches_info);
                   message_with_matches_info = NULL;
                   handle_session(socket_for_thread, current_user);
                   return;
             }
+
+            status_code = htonl(0);       //Otherwise, send ok status code
+            send_all(socket_for_thread, &status_code, sizeof(status_code));
 
       }
 
@@ -1361,6 +1380,9 @@ unsigned int join_spcific_lobby(int socket_for_thread, User* current_user, Match
                   match_to_join->match->match_free = 1;
                   pthread_cond_signal(&match_to_join->match->match_cond_var);
                   pthread_mutex_unlock(&match_to_join->match->match_mutex);
+
+                  uint32_t status_code = htonl(0);       //If joined the specific lobby, send ok status code
+                  send_all(socket_for_thread, &status_code, sizeof(status_code));
                   
                   handle_being_in_lobby(socket_for_thread, match_to_join, current_user, i);
                   return 0;         //Founded a place for the user, all ok
@@ -1377,8 +1399,6 @@ unsigned int join_spcific_lobby(int socket_for_thread, User* current_user, Match
       return 1;         //Lobby full, error returned
 
 
-
-      
 }
 
 void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, User* current_user, int id_in_match){

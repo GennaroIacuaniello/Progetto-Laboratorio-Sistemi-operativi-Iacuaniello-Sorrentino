@@ -62,6 +62,10 @@ void handle_starting_interaction(int socket_fd);
 void handle_login(int socket_fd);
 void handle_registration(int socket_fd);
 
+void handle_session(int socket_fd);
+void lobby_creation(int socket_fd);
+void join_lobby(int socket_fd);
+
 int main(int argc, char* argv[]) {
 
     signal(SIGPIPE, SIG_IGN);
@@ -565,3 +569,215 @@ void handle_registration(int socket_fd){
 
 }
 
+void handle_session(int socket_fd){
+
+    char welcome_message_and_menu[MAX_LENGHT];
+
+    recv_string(socket_fd, welcome_message_and_menu, MAX_LENGHT, 0);
+
+    int done = 0;
+
+    while (done == 0){
+
+        //CLEAR_SCREEN and CURSOR_HOME to put the cursor at the top left corner of the screen
+        printf("\033[2J\033[H");
+
+        printf("%s", welcome_message_and_menu);
+
+        uint32_t option;
+        uint32_t option_to_send;
+
+        if (scanf("%u", &option) != 1) {
+            option = UINT_MAX;     //Garbage value to send and so receive "Option not valid"
+        }
+
+        //Cleans the buffer
+        int c;
+        while ((c = getchar()) != '\n' && c != EOF);
+
+
+        option_to_send = htonl(option);
+
+
+        send_all(socket_fd, &option_to_send, sizeof(option_to_send));
+
+        switch (option){
+                case 1:
+                    done = 1;
+                    lobby_creation(socket_fd);
+                    return;
+                case 2:
+                    done = 1;
+                    join_lobby(socket_fd);
+                    return;
+                case 3:
+                    done = 1;
+
+                    recv_string(socket_fd, welcome_message_and_menu, MAX_LENGHT, 0);
+
+                    close(socket_fd);
+
+                    printf("\033[?1049l"); // EXIT_ALT_SCREEN
+                    fflush(stdout);
+
+                    printf("%s", welcome_message_and_menu);
+                    
+                    exit(0);
+                    break;
+
+                default:
+                    recv_string(socket_fd, welcome_message_and_menu, MAX_LENGHT, 0);
+                    break;
+        }
+
+    }
+    
+
+}
+
+void lobby_creation(int socket_fd){
+
+    char size_request[MAX_LENGHT];
+
+    recv_string(socket_fd, size_request, MAX_LENGHT, 0);
+
+    int done = 0;
+
+    while (done == 0){
+
+        //CLEAR_SCREEN and CURSOR_HOME to put the cursor at the top left corner of the screen
+        printf("\033[2J\033[H");
+
+        printf("%s", size_request);
+
+        uint32_t option;
+        uint32_t option_to_send;
+
+        if (scanf("%u", &option) != 1) {
+            option = UINT_MAX;     //Garbage value to send and so receive "Option not valid"
+        }
+
+        //Cleans the buffer
+        int c;
+        while ((c = getchar()) != '\n' && c != EOF);
+
+
+        option_to_send = htonl(option);
+
+
+        send_all(socket_fd, &option_to_send, sizeof(option_to_send));
+
+        if(option == 0 || option > 3)
+            recv_string(socket_fd, size_request, MAX_LENGHT, 0);
+        else
+            done = 1;
+
+    }
+
+    handle_being_in_lobby(socket_fd);
+
+}
+
+void join_lobby(int socket_fd){
+
+    char message_with_matches_info[MAX_LENGHT];
+
+    recv_string(socket_fd, message_with_matches_info, MAX_LENGHT, 0);
+
+    uint32_t status_received, status_code = 1;
+
+    ssize_t r =recv_all(socket_fd, &status_received, sizeof(status_received), 0);
+
+    if (r == sizeof(status_received))
+        status_code = ntohl(status_received);
+
+
+    if(status_code == 1){
+
+        //CLEAR_SCREEN and CURSOR_HOME to put the cursor at the top left corner of the screen
+        printf("\033[2J\033[H");
+
+        printf("%s", message_with_matches_info);
+
+        sleep(1);
+
+        handle_session(socket_fd);
+        return;
+
+    }
+
+    int done = 0;
+
+    while (done == 0){
+
+        //CLEAR_SCREEN and CURSOR_HOME to put the cursor at the top left corner of the screen
+        printf("\033[2J\033[H");
+
+        printf("%s", message_with_matches_info);
+
+        uint32_t option;
+        uint32_t option_to_send;
+
+        if (scanf("%u", &option) != 1) {
+            option = UINT_MAX;     //Garbage value to send and so receive "Option not valid"
+        }
+
+        //Cleans the buffer
+        int c;
+        while ((c = getchar()) != '\n' && c != EOF);
+
+        option_to_send = htonl(option);
+
+        send_all(socket_fd, &option_to_send, sizeof(option_to_send));
+
+        if(option == 0){
+
+            done = 1;
+
+            //CLEAR_SCREEN and CURSOR_HOME to put the cursor at the top left corner of the screen
+            printf("\033[2J\033[H");
+
+            handle_session(socket_fd);
+            return;
+            
+        }
+
+        r = recv_all(socket_fd, &status_received, sizeof(status_received), 0);
+
+        if (r == sizeof(status_received))
+            status_code = ntohl(status_received);
+
+        if(status_code == 0){
+            done = 1;
+            handle_being_in_lobby(socket_fd);
+            return;
+        }
+
+        recv_string(socket_fd, message_with_matches_info, MAX_LENGHT, 0);
+
+        r = recv_all(socket_fd, &status_received, sizeof(status_received), 0);
+
+        if (r == sizeof(status_received))
+            status_code = ntohl(status_received);
+
+
+        if(status_code == 1){
+
+            done = 1;
+            
+            //CLEAR_SCREEN and CURSOR_HOME to put the cursor at the top left corner of the screen
+            printf("\033[2J\033[H");
+
+            printf("%s", message_with_matches_info);
+
+            sleep(1);
+
+            handle_session(socket_fd);
+            return;
+
+        }
+
+    }
+
+
+}
