@@ -277,7 +277,7 @@ const unsigned char array_of_map_presets[4][16][16] = {
 
       {
       {'e', 'e', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'e', 'e', 'e', 'e', 'e', 'e'},
-      {'w', 'w', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'w', 'w', 'w', 'e', 'e', 'e', 'e'},
+      {'e', 'w', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'w', 'w', 'w', 'e', 'e', 'e', 'e'},
       {'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'w', 'w', 'e', 'e', 'e'},
       {'e', 'e', 'e', 'e', 'w', 'w', 'w', 'w', 'e', 'e', 'e', 'e', 'e', 'w', 'e', 'e'},
       {'e', 'e', 'e', 'w', 'e', 'e', 'e', 'w', 'w', 'w', 'e', 'e', 'e', 'e', 'w', 'e'},
@@ -301,7 +301,7 @@ const unsigned char array_of_map_presets[4][16][16] = {
       {'e', 'e', 'e', 'w', 'e', 'e', 'w', 'e', 'e', 'e', 'w', 'e', 'e', 'w', 'e', 'e'},
       {'e', 'e', 'w', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'w', 'e'},
       {'e', 'e', 'w', 'e', 'e', 'w', 'w', 'e', 'e', 'e', 'w', 'w', 'e', 'e', 'w', 'e'},
-      {'e', 'w', 'e', 'e', 'e', 'w', 'e', 'e', 'e', 'e', 'w', 'e', 'e', 'e', 'e', 'w'},
+      {'e', 'w', 'e', 'e', 'e', 'w', 'e', 'e', 'e', 'e', 'w', 'e', 'e', 'e', 'e', 'e'},
       {'e', 'w', 'e', 'e', 'e', 'w', 'w', 'e', 'e', 'e', 'w', 'w', 'e', 'e', 'e', 'w'},
       {'e', 'w', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'w'},
       {'e', 'w', 'e', 'e', 'e', 'e', 'e', 'w', 'w', 'w', 'e', 'e', 'e', 'e', 'e', 'w'},
@@ -373,7 +373,7 @@ static void* handle_client(void* arg);
 //Handler of the signal SIGUSR1 used for the start of the matches
 //void siguser1_handler(int signal);
 //TODO Rimuovere le seguenti funzioni di debug
-void read_users(){
+/*void read_users(){
       
       FILE* file_users = fopen("users.dat", "rb+");
 
@@ -394,7 +394,7 @@ void read_users(){
             
       }
 
-}
+}*/
 
 
 int main(int argc, char* argv[]){
@@ -2100,7 +2100,7 @@ void handle_client_death_in_lobby(int socket_for_thread, Match_list_node* match_
 void handle_being_in_match(int socket_for_thread, Match_list_node* match_node, User* current_user, int id_in_match){
 
       uint32_t size = match_node->match->size;
-      int timer = (size % 16) * SECONDS_PER_SIZE;
+      int timer = (size / 16) * SECONDS_PER_SIZE;
 
       uint32_t message_type = 0;          //Code to send to the client to tell message type, 0 = local information, 1 = global information, 2 = match ending
 

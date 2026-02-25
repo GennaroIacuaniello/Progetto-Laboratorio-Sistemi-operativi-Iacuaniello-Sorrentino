@@ -104,6 +104,8 @@ void print_map(uint32_t players_positions[MAX_PLAYERS_MATCH][2], uint32_t my_id,
 void handle_local_info(int socket_fd, char** map, uint32_t size);
 void handle_global_info(int socket_fd, char** map, uint32_t size);
 
+void handle_match_ending(int socket_fd);
+
 
 
 int main(int argc, char* argv[]) {
@@ -1101,8 +1103,6 @@ void handle_being_in_match(int socket_fd){
 
     int stdin_open = 1;
     fd_set rset;
-    
-    char recvline[MAX_LENGHT];
 
     uint32_t status_received, status_code = 1;
 	
@@ -1141,7 +1141,7 @@ void handle_being_in_match(int socket_fd){
             }else{
                 status_code = UINT_MAX;    //if an error occured, garbage value
             }
-
+            
             switch (status_code){
                 case 2:
                     //Deallocating the map
@@ -1350,7 +1350,7 @@ void handle_local_info(int socket_fd, char** map, uint32_t size){
 
     print_map(message_with_local_information.players_position, my_id, map, size);
 
-    printf("%s", message_with_local_information.message);
+    printf("%s\n", message_with_local_information.message);
 
 }
 
@@ -1402,10 +1402,22 @@ void handle_global_info(int socket_fd, char** map, uint32_t size){
 
     print_map(global_Info_Header.players_position, my_id, map, size);
 
-    printf("%s", "\nMuoversi con w, a, s, d");
+    printf("%s\n", "\nMuoversi con w, a, s, d");
 
 }
 
 
+void handle_match_ending(int socket_fd){
+
+    char ending_message[MAX_LENGHT];
+
+    //Receive ending message
+    recv_string(socket_fd, ending_message, MAX_LENGHT, 0);
+
+    printf("%s", ending_message);
+
+    sleep(30);
+
+}
 
 
