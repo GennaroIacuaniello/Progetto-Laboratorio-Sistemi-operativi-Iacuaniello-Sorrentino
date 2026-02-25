@@ -856,7 +856,7 @@ User* handle_starting_interaction(int socket_for_thread){
                         return handle_registration(socket_for_thread);
                   case 3:
                         done = 1;
-                        char closing_message[] = "\nArrivederci!";
+                        char closing_message[] = "\nArrivederci!\n";
                         send_all(socket_for_thread, closing_message, sizeof(closing_message));
 
                         close(socket_for_thread);
@@ -944,7 +944,7 @@ User* handle_login(int socket_for_thread){
                               return handle_registration(socket_for_thread);
                         case 3:
                               done = 1;
-                              char closing_message[] = "\nArrivederci!";
+                              char closing_message[] = "\nArrivederci!\n";
                               send_all(socket_for_thread, closing_message, sizeof(closing_message));
 
                               close(socket_for_thread);
@@ -1038,7 +1038,7 @@ User* handle_registration(int socket_for_thread){
                               return handle_login(socket_for_thread);
                         case 3:
                               done = 1;
-                              char closing_message[] = "\nArrivederci!";
+                              char closing_message[] = "\nArrivederci!\n";
                               send_all(socket_for_thread, closing_message, sizeof(closing_message));
 
                               close(socket_for_thread);
@@ -1088,7 +1088,7 @@ void handle_session(int socket_for_thread, User* current_user){
                         break;
                   case 3:
                         done = 1;
-                        char closing_message[] = "\nArrivederci!";
+                        char closing_message[] = "\nArrivederci!\n";
                         send_all(socket_for_thread, closing_message, sizeof(closing_message));
                         
                         free(current_user);
@@ -1097,7 +1097,7 @@ void handle_session(int socket_for_thread, User* current_user){
                         pthread_exit(0);
 
                   default:
-                        char error_message[] = "\nOpzione non valida!\nInserire il numero relativo all'opzione che si desidera:\n1)Crea lobby\n2)Entra in una lobby\n3)Esci\n";
+                        char error_message[] = "\n        DUNGEONS & COLORS        \n\nOpzione non valida!\nInserire il numero relativo all'opzione che si desidera:\n1)Crea lobby\n2)Entra in una lobby\n3)Esci\n";
                         send_all(socket_for_thread, error_message, sizeof(error_message));
                         break;
             }
@@ -1406,6 +1406,8 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
       char message_host[1024] = "\n        DUNGEONS & COLORS        \n\nSei nella tua lobby!\nInserire il numero relativo all'opzione che si desidera:\n1)Inizia partita\n2)Cambia dimensione mappa\n3)Esci dalla lobby\n4)Esci dal gioco\n";
       char message_guest[1024] = "\n        DUNGEONS & COLORS        \n\nSei in una lobby!\nAttendere l'inizio della partita oppure inserire il numero relativo all'opzione che si desidera:\n1)Esci dalla lobby\n2)Esci dal gioco\n";
 
+      uint32_t code = 1;         //Code to send to the client together with the message; 0 = role host, 1 = role guest, 2 = match started
+
       char* list_of_players_and_size = get_message_list_of_players_and_size(socket_for_thread, current_user, match_node, id_in_match);
 
       pthread_mutex_lock(&match_node->match->match_mutex);
@@ -1421,6 +1423,9 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
             pthread_cond_signal(&match_node->match->match_cond_var);
             pthread_mutex_unlock(&match_node->match->match_mutex);
 
+            code = htonl(0);
+            send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
+
             strcat(message_host, list_of_players_and_size);
             send_all_in_match(socket_for_thread, message_host, strlen(message_host) + 1, match_node, current_user, id_in_match);
 
@@ -1428,6 +1433,9 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
             match_node->match->match_free = 1;
             pthread_cond_signal(&match_node->match->match_cond_var);
             pthread_mutex_unlock(&match_node->match->match_mutex);
+
+            code = htonl(1);
+            send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
 
             strcat(message_guest, list_of_players_and_size);
             send_all_in_match(socket_for_thread, message_guest, strlen(message_guest) + 1, match_node, current_user, id_in_match);
@@ -1477,12 +1485,19 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
                                     
                                     strcat(message_host, list_of_players_and_size);
                                     
+                                    code = htonl(0);
+                                    send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
+
                                     send_all_in_match(socket_for_thread, message_host, strlen(message_host) + 1, match_node, current_user, id_in_match);
                                     
                                     break;
 
                               case 2:
                                     change_map_size(socket_for_thread, match_node, current_user, id_in_match);
+
+                                    code = htonl(0);
+                                    send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
+
                                     send_all_in_match(socket_for_thread, message_host, strlen(message_host) + 1, match_node, current_user, id_in_match);
                                     break;
                               case 3:
@@ -1494,13 +1509,16 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
                                     return;
 
                               default:
-                                    char error_message[] = "\nOpzione non valida!\nInserire il numero relativo alla dimensione della mappa che si desidera:\n1)Inizia partita\n2)Cambia dimensione mappa\n3)Esci dalla lobby\n4)Esci dal gioco\n";
+                                    char error_message[] = "\n        DUNGEONS & COLORS        \n\nOpzione non valida!\nInserire il numero relativo all'opzione che si desidera:\n1)Inizia partita\n2)Cambia dimensione mappa\n3)Esci dalla lobby\n4)Esci dal gioco\n";
                                     
                                     if(list_of_players_and_size != NULL)
                                           free(list_of_players_and_size);
 
                                     list_of_players_and_size = get_message_list_of_players_and_size(socket_for_thread, current_user, match_node, id_in_match);
                                     strcat(error_message, list_of_players_and_size);
+                                    
+                                    code = htonl(0);
+                                    send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
 
                                     send_all_in_match(socket_for_thread, error_message, strlen(error_message) + 1, match_node, current_user, id_in_match);
                                     break;
@@ -1523,7 +1541,7 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
                                     return;
 
                               default:
-                                    char error_message[] = "\nOpzione non valida!\nInserire il numero relativo alla dimensione della mappa che si desidera:\n1)Esci dalla lobby\n2)Esci dal gioco\n";
+                                    char error_message[] = "\n        DUNGEONS & COLORS        \n\nOpzione non valida!\nInserire il numero relativo alla dimensione della mappa che si desidera:\n1)Esci dalla lobby\n2)Esci dal gioco\n";
 
                                     if(list_of_players_and_size != NULL)
                                           free(list_of_players_and_size);
@@ -1531,6 +1549,9 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
                                     list_of_players_and_size = get_message_list_of_players_and_size(socket_for_thread, current_user, match_node, id_in_match);
                                     strcat(error_message, list_of_players_and_size);
                                     
+                                    code = htonl(1);
+                                    send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
+
                                     send_all_in_match(socket_for_thread, error_message, strlen(error_message) + 1, match_node, current_user, id_in_match);
                                     break;
                         }
@@ -1564,6 +1585,9 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
                   match_node->match->match_free = 1;
                   pthread_cond_signal(&match_node->match->match_cond_var);
                   pthread_mutex_unlock(&match_node->match->match_mutex);
+                  
+                  code = htonl(2);
+                  send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
 
                   handle_being_in_match(socket_for_thread, match_node, current_user, id_in_match);
                   //no return, after match ending, back in this function
@@ -1576,6 +1600,9 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
                   
                   strcat(message_guest, list_of_players_and_size);
                   
+                  code = htonl(1);
+                  send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
+
                   send_all_in_match(socket_for_thread, message_guest, strlen(message_guest) + 1, match_node, current_user, id_in_match);
 
             }else{
@@ -1617,6 +1644,10 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
                               strcpy(message_host, "\n        DUNGEONS & COLORS        \n\nSei nella tua lobby!\nInserire il numero relativo all'opzione che si desidera:\n1)Inizia partita\n2)Cambia dimensione mappa\n3)Esci dalla lobby\n4)Esci dal gioco\n");
                             
                               strcat(message_host, list_of_players_and_size);
+
+                              code = htonl(0);
+                              send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
+
                               send_all_in_match(socket_for_thread, message_host, strlen(message_host) + 1, match_node, current_user, id_in_match);
 
                         }else{
@@ -1627,6 +1658,10 @@ void handle_being_in_lobby(int socket_for_thread, Match_list_node* match_node, U
                               strcpy(message_guest, "\n        DUNGEONS & COLORS        \n\nSei in una lobby!\nAttendere l'inizio della partita oppure inserire il numero relativo all'opzione che si desidera:\n1)Esci dalla lobby\n2)Esci dal gioco\n");
 
                               strcat(message_guest, list_of_players_and_size);
+
+                              code = htonl(1);
+                              send_all_in_match(socket_for_thread, &code, sizeof(code), match_node, current_user, id_in_match);
+
                               send_all_in_match(socket_for_thread, message_guest, strlen(message_guest) + 1, match_node, current_user, id_in_match);
 
                         }
@@ -1805,7 +1840,7 @@ void start_match(int socket_for_thread, Match_list_node* match_node, User* curre
       pthread_cond_signal(&match_node->match->match_cond_var);
       pthread_mutex_unlock(&match_node->match->match_mutex);
 
-      handle_being_in_match(socket_for_thread, match_node, current_user, id_in_match);          //TO DOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOo
+      handle_being_in_match(socket_for_thread, match_node, current_user, id_in_match);
 
 
 
