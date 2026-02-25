@@ -61,11 +61,11 @@ typedef struct Message_with_local_information{
 
     uint32_t players_position[MAX_PLAYERS_MATCH][2];        //Every row has 2 cells, if a player is in the local map, its cells are not size of the map + 1
 
-    uint32_t receiver_id;                                   //Id_in_match of the player who is receiving the message, used to know its data from the array players_position 
+    uint32_t my_id;                                         //Id_in_match of the player who is receiving the message, used to know its data from the array players_position 
 
     char local_map[5][5];
 
-    char message[40];
+    char message[25];
 
 }Message_with_local_information;
 
@@ -73,7 +73,7 @@ typedef struct Global_Info_Header{
       
     uint32_t players_position[MAX_PLAYERS_MATCH][2];      //Every row has 2 cells, if a player is in the global map, its cells are not size of the map + 1
 
-    uint32_t my_id;                                   //Id_in_match of the player who is receiving the message, used to know its data from the array players_position 
+    uint32_t my_id;                                       //Id_in_match of the player who is receiving the message, used to know its data from the array players_position 
 
     uint32_t size;                                        //Global map size
 
@@ -100,6 +100,10 @@ void handle_being_in_lobby(int socket_fd);
 void handle_change_map_size(int socket_fd);
 
 void handle_being_in_match(int socket_fd);
+void print_map(uint32_t players_positions[MAX_PLAYERS_MATCH][2], uint32_t my_id, char** map, uint32_t size);
+void handle_local_info(int socket_fd, char** map, uint32_t size);
+void handle_global_info(int socket_fd, char** map, uint32_t size);
+
 
 
 int main(int argc, char* argv[]) {
@@ -1151,10 +1155,10 @@ void handle_being_in_match(int socket_fd){
                     handle_match_ending(socket_fd);
                     return;
                 case 0:
-                    handle_local_info(socket_fd, map);
+                    handle_local_info(socket_fd, map, size);
                     break;
                 case 1:
-                    handle_global_info(socket_fd, map);
+                    handle_global_info(socket_fd, map, size);
                     break;
                 default:
                     //Error occured, do nothing
@@ -1218,4 +1222,190 @@ void disable_terminal_game_mode() {
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);  //Sets previous attributes
 
 }
+
+
+void print_map(uint32_t players_positions[MAX_PLAYERS_MATCH][2], uint32_t my_id, char** map, uint32_t size){
+
+    int i, j, p;
+
+    //CLEAR_SCREEN and CURSOR_HOME to put the cursor at the top left corner of the screen
+    printf("\033[2J\033[H");
+
+    //Print upper border
+    printf("  +");
+
+    for(i=0; i < size; i++) 
+        printf("--");
+
+    printf("+\n");
+    
+
+    for (i = 0; i < size; i++) {
+        printf("  |"); //Print left border
+        
+        for (j = 0; j < size; j++) {
+            
+            //Check players positions
+            int player_on_cell = -1;
+            for (p = 0; p < MAX_PLAYERS_MATCH; p++) {
+                if (players_positions[p][0] == i && players_positions[p][1] == j) {
+                    player_on_cell = p;
+                    break; //Player founded
+                }
+            }
+
+            //If there is a player, print its symbol and its color
+            if (player_on_cell != -1) {
+
+                if (player_on_cell == my_id) {
+
+                    //This player
+                    printf("%s%s★ %s", FG_WHITE_BOLD, bg_colors[player_on_cell], RESET);
+
+                } else {
+
+                    //Enemies
+                    printf("%s%s♦ %s", FG_BLACK_BOLD, bg_colors[player_on_cell], RESET);
+
+                }
+                continue; //Go to next cell
+            }
+
+            //When there is no player
+            switch (map[i][j]) {
+                case 'e': 
+                    printf("%s  %s", BG_BLACK, RESET); 
+                    break;
+                case 'w': 
+                    printf("%s  %s", BG_WHITE, RESET); 
+                    break;
+                case 'b': 
+                    printf("%s  %s", BG_BLUE, RESET); 
+                    break;
+                case 'r': 
+                    printf("%s  %s", BG_RED, RESET); 
+                    break;
+                case 'g': 
+                    printf("%s  %s", BG_GREEN, RESET); 
+                    break;
+                case 'y': 
+                    printf("%s  %s", BG_YELLOW, RESET); 
+                    break;
+                default:  
+                    printf("  "); 
+                    break;
+            }
+        }
+        printf("|\n"); //Print right border
+    }
+
+
+    //Print lower border
+    printf("  +");
+
+    for(i=0; i < size; i++) 
+        printf("--");
+
+    printf("+\n");
+
+
+}
+
+void handle_local_info(int socket_fd, char** map, uint32_t size){
+
+    Message_with_local_information message_with_local_information;
+
+    recv_all(socket_fd, &message_with_local_information, sizeof(message_with_local_information), 0);
+
+    uint32_t my_id = ntohl(message_with_local_information.my_id);
+
+    //Converts back all the coordinates received
+    int p;
+    for (p = 0; p < MAX_PLAYERS_MATCH; p++) {
+        message_with_local_information.players_position[p][0] = ntohl(message_with_local_information.players_position[p][0]);
+        message_with_local_information.players_position[p][1] = ntohl(message_with_local_information.players_position[p][1]);
+    }
+
+    //Coordinates of the player are the center of the local map received
+    int x = message_with_local_information.players_position[my_id][0];
+    int y = message_with_local_information.players_position[my_id][1];
+    
+
+    int i, j, z, k;
+    z = 0;
+    for(i= x - 2; i <= x + 2; i++, z ++){
+
+        k = 0;
+        for(j = y - 2; j <= y + 2; j++, k++ ){
+
+                if( (i >= 0 && i < size)  && (j >= 0 && j < size) ){            //If i and j are "good" indexes
+
+                    map[i][j] = message_with_local_information.local_map[z][k];
+
+                }
+
+
+        }
+    }
+
+    print_map(message_with_local_information.players_position, my_id, map, size);
+
+    printf("%s", message_with_local_information.message);
+
+}
+
+void handle_global_info(int socket_fd, char** map, uint32_t size){
+
+    Global_Info_Header global_Info_Header;
+
+    recv_all(socket_fd, &global_Info_Header, sizeof(global_Info_Header), 0);
+
+    uint32_t my_id = ntohl(global_Info_Header.my_id);
+
+    //Converts back all the coordinates received
+    int p;
+    for (p = 0; p < MAX_PLAYERS_MATCH; p++) {
+        global_Info_Header.players_position[p][0] = ntohl(global_Info_Header.players_position[p][0]);
+        global_Info_Header.players_position[p][1] = ntohl(global_Info_Header.players_position[p][1]);
+    }
+
+    char* new_global_map = malloc(size*size*sizeof(char));
+
+    if (!new_global_map) {
+
+        perror("malloc");
+        close(socket_fd);
+
+        printf("\033[?1049l"); // EXIT_ALT_SCREEN
+        fflush(stdout);
+
+        printf("%s", "\nErrore fatale\n");
+        
+        exit(0);
+
+    }
+
+    recv_all(socket_fd, new_global_map, size*size*sizeof(char), 0);
+
+    int i, j;
+    for(i = 0; i < size; i++){
+        for(j = 0; j < size; j++){
+
+            if(map[i][j] != 'w')
+                map[i][j] = new_global_map[ (i*size) + j ];
+
+
+        }
+    }
+
+    free(new_global_map);
+
+    print_map(global_Info_Header.players_position, my_id, map, size);
+
+    printf("%s", "\nMuoversi con w, a, s, d");
+
+}
+
+
+
 

@@ -130,7 +130,7 @@ typedef struct Message_with_local_information{
 
       char local_map[5][5];
 
-      char message[40];
+      char message[25];
 
 }Message_with_local_information;
 
@@ -2184,7 +2184,7 @@ void handle_being_in_match(int socket_for_thread, Match_list_node* match_node, U
 
 Message_with_local_information* get_message_with_local_information(Match_list_node* match_node, int id_in_match){
 
-      const char message[] = "\nInserire prossima mossa (w, a, s, d): ";
+      const char message[] = "\nMuoversi con w, a, s, d";
 
       Message_with_local_information* message_with_local_information = malloc(sizeof(Message_with_local_information));
 
