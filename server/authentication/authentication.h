@@ -1,10 +1,15 @@
 #ifndef AUTHENTICATION_H
 #define AUTHENTICATION_H
 
-// 1. I tuoi #include necessari (es. <stdint.h>, "shared_types.h")
-// 2. Le tue struct
-// 3. I prototipi delle funzioni
+typedef struct User{
 
-unsigned int login(char* username, char* password);
+      char username[64];
+      unsigned long hashed_password;
 
-#endif // AUTHENTICATION_H
+}User;
+
+User* handle_login(int socket_for_thread);
+User* handle_registration(int socket_for_thread);
+
+
+#endif

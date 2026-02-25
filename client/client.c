@@ -1304,8 +1304,6 @@ void handle_being_in_match(int socket_fd){
                     
                     free(map);
 
-                    disable_terminal_game_mode();
-
                     handle_match_ending(socket_fd);
                     return;
                 case 0:
@@ -1374,6 +1372,8 @@ void enable_terminal_game_mode() {
 void disable_terminal_game_mode() {
 
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);  //Sets previous attributes
+
+    tcflush(STDIN_FILENO, TCIFLUSH);
 
 }
 
@@ -1571,6 +1571,8 @@ void handle_match_ending(int socket_fd){
     printf("%s", ending_message);
 
     sleep(30);
+
+    disable_terminal_game_mode();
 
 }
 
