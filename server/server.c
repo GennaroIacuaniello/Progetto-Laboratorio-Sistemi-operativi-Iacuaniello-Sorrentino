@@ -2015,6 +2015,7 @@ void check_host_change_or_match_cancellation(Match_list_node* match_node, int id
                   }
 
                   free_match(match_node->match);
+                  free(match_node);
                   match_node = NULL;
             }
 
@@ -2079,6 +2080,7 @@ void handle_client_death_in_lobby(int socket_for_thread, Match_list_node* match_
                   }
 
                   free_match(match_node->match);
+                  free(match_node);
                   match_node = NULL;
             }
 
