@@ -1,5 +1,5 @@
 //Compile: gcc client.c authentication/authentication.c network/network.c session/session.c match/match.c -I./authentication -I./network -I./session -I./match -o client.out
-//Run: ./client IP PORT
+//Run: ./client Server-Name/IP PORT
 
 #include "authentication/authentication.h"
 #include "network/network.h"
